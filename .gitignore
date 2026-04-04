@@ -1,0 +1,10 @@
+node_modules/
+.env
+.zencoder
+.zencoder/
+.zenflow
+.zenflow/
+frontend/node_modules/
+backend/node_modules/
+backend/uploads/
+.DS_Store
