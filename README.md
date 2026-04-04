@@ -1,6 +1,6 @@
 # AI-Powered Job Application Tracker (JobTracker AI)
 
-![JobTracker AI Dashboard](frontend/Job%20Application.png)
+![JobTracker AI Dashboard](frontend/src/Job%20Application.png)
 
 ## 📌 Project Overview
 JobTracker AI is a comprehensive, full-stack web application designed to help job seekers safely organize their job hunt, track interview stages, and optimize their resumes. Using advanced heuristic algorithms, the application parses PDF resumes, compares them against pasted job descriptions, and delivers ATS-style keyword match scores and actionable suggestions.
