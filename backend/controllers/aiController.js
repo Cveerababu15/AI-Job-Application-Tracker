@@ -38,7 +38,15 @@ exports.analyzeResume = async (req, res) => {
             suggestions: aiResult.suggestions || "No suggestions available."
         });
 
-        res.json({ message: "Resume analyzed successfully", analysis });
+        // Backward compatible response:
+        // - Keep existing fields (`message`, `analysis`)
+        // - Add expanded contract (`success`, `data`) for new frontend rendering
+        return res.status(200).json({
+            success: true,
+            message: "Resume analyzed successfully",
+            analysis, // DB record (existing shape)
+            data: aiResult, // full AI result (expanded shape)
+        });
     } catch (error) {
         console.error("Analysis Error:", error.message);
         res

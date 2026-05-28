@@ -1,134 +1,86 @@
 /**
- * Keyword catalogue for matching job descriptions and resumes (heuristic ATS-style).
- * Order does not matter; matching is substring-based (lowercase).
+ * AI resume analysis service.
+ *
+ * Strategy:
+ * - If `OPENROUTER_API_KEY` is configured, use OpenRouter + DeepSeek model for higher-quality results.
+ * - If unavailable (or the request fails), fall back to a fast heuristic ATS-style matcher.
+ *
+ * Returns a stable shape consumed by `aiController.js`:
+ *   { atsScore, summary, missingSkills, skillsToAdd, suggestions, keyChanges }
  */
+
+const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+const DEFAULT_MODEL = process.env.OPENROUTER_MODEL || "deepseek/deepseek-v4-flash";
+
+// Keep heuristic keyword list small and cheap; used for fallback and prompt grounding.
 const TECH_KEYWORDS = [
-  "javascript", "typescript", "python", "java", "c#", "c++", "go", "rust", "ruby", "php",
-  "node.js", "nodejs", "express", "nestjs", "react", "vue", "angular", "next.js", "redux",
-  "html", "css", "sass", "scss", "tailwind", "bootstrap",
-  "mongodb", "postgresql", "mysql", "redis", "sql", "nosql", "dynamodb", "firebase",
-  "aws", "azure", "gcp", "docker", "kubernetes", "jenkins", "ci/cd", "terraform",
-  "graphql", "rest", "api", "microservices", "kafka", "rabbitmq",
-  "git", "github", "agile", "scrum", "jest", "mocha", "pytest", "unit testing",
-  "machine learning", "tensorflow", "pytorch", "nlp", "data analysis",
-  "figma", "ui/ux", "responsive", "accessibility",
+  "javascript",
+  "typescript",
+  "python",
+  "java",
+  "node.js",
+  "nodejs",
+  "express",
+  "react",
+  "next.js",
+  "html",
+  "css",
+  "tailwind",
+  "mongodb",
+  "sql",
+  "aws",
+  "docker",
+  "kubernetes",
+  "rest",
+  "api",
+  "git",
+  "jest",
 ];
 
-const STOPWORDS = new Set([
-  "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
-  "by", "from", "as", "is", "was", "are", "were", "been", "be", "have", "has", "had",
-  "do", "does", "did", "will", "would", "should", "could", "may", "might", "must",
-  "this", "that", "these", "those", "it", "we", "you", "they", "our", "your", "their",
-  "who", "what", "which", "about", "into", "through", "during", "before", "after",
-  "all", "each", "every", "both", "few", "more", "most", "other", "some", "such", "no",
-  "not", "only", "same", "so", "than", "too", "very", "just", "also", "here", "there",
-  "when", "where", "why", "how", "any", "can", "if", "then", "else", "using", "including",
-]);
+function normalizeText(s) {
+  return (s || "").toString().trim();
+}
 
-/**
- * Find known tech / role keywords present in text.
- * @param {string} text
- * @returns {string[]}
- */
 function findKeywordsInText(text) {
-  if (!text) return [];
-  const lower = text.toLowerCase();
+  const lower = (text || "").toLowerCase();
   const found = [];
   for (const kw of TECH_KEYWORDS) {
-    if (lower.includes(kw.toLowerCase())) {
-      found.push(kw);
-    }
+    if (lower.includes(kw)) found.push(kw);
   }
   return [...new Set(found)];
 }
 
-/**
- * Extra salient tokens from job description (longer words often carry skill meaning).
- * @param {string} jd
- * @returns {string[]}
- */
-function extractJdFocusTerms(jd) {
-  const words = jd.toLowerCase().replace(/[^a-z0-9+#./\s-]/g, " ").split(/\s+/);
-  const terms = words.filter((w) => w.length > 4 && !STOPWORDS.has(w));
-  const freq = {};
-  for (const w of terms) {
-    freq[w] = (freq[w] || 0) + 1;
-  }
-  return Object.entries(freq)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 15)
-    .map(([w]) => w);
-}
-
-/**
- * Compare resume against job description: ATS-style score, gaps, and narrative fields.
- * @param {string} resumeText
- * @param {string} jobDescription
- */
-function compareResumeToJob(resumeText, jobDescription) {
+function heuristicCompare(resumeText, jobDescription) {
   const resumeLower = (resumeText || "").toLowerCase();
   const jd = jobDescription || "";
 
   const jdKeywords = findKeywordsInText(jd);
-  const resumeKeywords = findKeywordsInText(resumeText);
+  const matched = jdKeywords.filter((k) => resumeLower.includes(k));
+  const missingFromJd = jdKeywords.filter((k) => !resumeLower.includes(k));
 
-  const jdSet = new Set(jdKeywords.map((k) => k.toLowerCase()));
-  const matched = jdKeywords.filter((k) => resumeLower.includes(k.toLowerCase()));
-  const missingFromJd = jdKeywords.filter((k) => !resumeLower.includes(k.toLowerCase()));
-
-  let atsScore = 0;
-  if (jdKeywords.length > 0) {
-    atsScore = Math.round((matched.length / jdKeywords.length) * 100);
-  } else {
-    const focus = extractJdFocusTerms(jd);
-    let hits = 0;
-    for (const term of focus) {
-      if (resumeLower.includes(term)) hits += 1;
-    }
-    atsScore = focus.length ? Math.min(100, Math.round((hits / focus.length) * 70) + 15) : 45;
-  }
-
-  atsScore = Math.min(100, Math.max(0, atsScore));
+  const atsScore = jdKeywords.length
+    ? Math.min(100, Math.max(0, Math.round((matched.length / jdKeywords.length) * 100)))
+    : 45;
 
   const skillsToAdd = [...new Set(missingFromJd)].slice(0, 10);
 
-  const summaryParts = [];
-  summaryParts.push(
-    `Compared your resume against this job description: ${jdKeywords.length ? `${matched.length} of ${jdKeywords.length} listed technical keywords appear on your resume.` : "Keyword overlap was estimated from the job text and your resume."}`
-  );
-  if (atsScore >= 75) {
-    summaryParts.push("Strong alignment — tighten wording and quantify impact to stand out further.");
-  } else if (atsScore >= 50) {
-    summaryParts.push("Moderate fit — adding missing keywords and mirroring the posting’s language will help ATS and recruiters.");
-  } else {
-    summaryParts.push("Gap-heavy match — prioritize adding the missing skills and relevant projects before applying.");
-  }
-  const summary = summaryParts.join(" ");
+  const summary =
+    jdKeywords.length > 0
+      ? `Compared your resume against this job description: ${matched.length} of ${jdKeywords.length} tracked keywords appear on your resume.`
+      : "Compared your resume against this job description using heuristic matching.";
 
-  const keyChanges = [];
-  if (skillsToAdd.length) {
-    keyChanges.push(`Add or surface these job-relevant skills: ${skillsToAdd.slice(0, 6).join(", ")}.`);
-  }
-  keyChanges.push("Mirror important phrases from the job description in your summary and skills sections (without copying verbatim).");
-  keyChanges.push("Use measurable outcomes (%, revenue, latency, team size) next to each major bullet.");
-  if (!resumeLower.includes("project") && !resumeLower.includes("experience")) {
-    keyChanges.push("Add a concise projects or professional experience section if missing.");
-  }
-  keyChanges.push("Ensure your headline or title line reflects the role you are targeting.");
+  const keyChanges = [
+    skillsToAdd.length ? `Add or surface these job-relevant skills: ${skillsToAdd.slice(0, 6).join(", ")}.` : null,
+    "Mirror important phrases from the job description in your summary and skills sections (without copying verbatim).",
+    "Quantify impact in bullets (%, $, latency, throughput, team size).",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
-  const suggestionLines = [];
-  suggestionLines.push(
-    "Reorder bullets so the most relevant tools and outcomes for this role appear in the top third of your resume."
-  );
-  suggestionLines.push(
-    "If you have used a missing skill informally, rename the bullet to include the exact keyword (e.g. “Built REST APIs with Express” vs “built backend”)."
-  );
-  if (missingFromJd.length > 3) {
-    suggestionLines.push(
-      `Focus learning or portfolio pieces on: ${skillsToAdd.slice(0, 5).join(", ")}.`
-    );
-  }
-  const suggestions = suggestionLines.join(" ");
+  const suggestions =
+    skillsToAdd.length > 0
+      ? `Prioritize adding evidence for: ${skillsToAdd.slice(0, 5).join(", ")}.`
+      : "Tighten wording, mirror role language, and quantify impact.";
 
   return {
     atsScore,
@@ -136,16 +88,135 @@ function compareResumeToJob(resumeText, jobDescription) {
     missingSkills: missingFromJd.length ? missingFromJd : skillsToAdd,
     skillsToAdd,
     suggestions,
-    keyChanges: keyChanges.join("\n\n"),
+    keyChanges,
   };
 }
 
+function extractJsonObject(text) {
+  if (!text) return null;
+  const raw = text.trim();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // Try to recover JSON object embedded in text (common with LLMs).
+    const start = raw.indexOf("{");
+    const end = raw.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      const maybe = raw.slice(start, end + 1);
+      try {
+        return JSON.parse(maybe);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
+async function callOpenRouter({ resumeText, jobDescription, timeoutMs = 20000 }) {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
+
+  const resume = normalizeText(resumeText);
+  const jd = normalizeText(jobDescription);
+
+  // Keep payload smaller for speed; models can handle long context, but your app benefits from lower latency.
+  const resumeSlice = resume.slice(0, 12000);
+  const jdSlice = jd.slice(0, 12000);
+
+  const heuristic = heuristicCompare(resumeSlice, jdSlice);
+
+  const system = [
+    "You are an ATS resume analyzer for a job application tracker.",
+    "Return ONLY valid JSON with the exact keys:",
+    "atsScore (0-100 number), summary (string), missingSkills (string[]), skillsToAdd (string[]), suggestions (string), keyChanges (string).",
+    "No markdown. No extra keys. No prose outside JSON.",
+  ].join(" ");
+
+  const user = [
+    "Analyze the resume vs job description.",
+    "Use the heuristic result only as a baseline; improve missingSkills and suggestions based on the texts.",
+    "Be extremely clear and specific in keyChanges/suggestions. Include short actionable bullets separated by blank lines in keyChanges.",
+    "In summary, explain in 2-4 sentences WHY the score is what it is (keyword coverage, proof/evidence, and clarity).",
+    "",
+    `HeuristicBaseline=${JSON.stringify(heuristic)}`,
+    "",
+    `JobDescription=${jdSlice}`,
+    "",
+    `ResumeText=${resumeSlice}`,
+  ].join("\n");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(OPENROUTER_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature: 0.2,
+        // OpenAI-compat hint; OpenRouter may ignore on some providers, but it helps keep output parseable.
+        response_format: { type: "json_object" },
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`OpenRouter error: ${res.status} ${errText}`);
+    }
+
+    const data = await res.json();
+    const text = data?.choices?.[0]?.message?.content || "";
+    const parsed = extractJsonObject(text);
+    if (!parsed) throw new Error("OpenRouter response not valid JSON");
+
+    // Normalize and harden output
+    const result = {
+      atsScore: Number.isFinite(parsed.atsScore) ? Math.max(0, Math.min(100, Number(parsed.atsScore))) : heuristic.atsScore,
+      summary: typeof parsed.summary === "string" ? parsed.summary : heuristic.summary,
+      missingSkills: Array.isArray(parsed.missingSkills) ? parsed.missingSkills.filter(Boolean).slice(0, 30) : heuristic.missingSkills,
+      skillsToAdd: Array.isArray(parsed.skillsToAdd) ? parsed.skillsToAdd.filter(Boolean).slice(0, 15) : heuristic.skillsToAdd,
+      suggestions: typeof parsed.suggestions === "string" ? parsed.suggestions : heuristic.suggestions,
+      keyChanges: typeof parsed.keyChanges === "string" ? parsed.keyChanges : heuristic.keyChanges,
+    };
+
+    return result;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /**
+ * Main exported API used by `aiController.js`
  * @param {string} resumeText
  * @param {string} jobDescription
  */
-function analyzeResume(resumeText, jobDescription) {
-  return compareResumeToJob(resumeText, jobDescription);
+async function analyzeResume(resumeText, jobDescription) {
+  const resume = normalizeText(resumeText);
+  const jd = normalizeText(jobDescription);
+
+  // Always have a fast fallback ready.
+  const fallback = heuristicCompare(resume, jd);
+
+  try {
+    const llm = await callOpenRouter({ resumeText: resume, jobDescription: jd });
+    return llm || fallback;
+  } catch (error) {
+    // Do not fail the API just because AI provider fails.
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("AI provider failed, using heuristic fallback:", error.message);
+    }
+    return fallback;
+  }
 }
 
 module.exports = analyzeResume;
