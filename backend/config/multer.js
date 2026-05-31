@@ -1,5 +1,6 @@
 const multer = require("multer");
 
+// Store PDFs in memory — works on serverless/deployed environments without a disk uploads folder
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 },

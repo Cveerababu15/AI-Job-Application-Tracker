@@ -122,7 +122,6 @@ function Navbar() {
         </div>
       </div>
 
-      {/* Mobile nav */}
       {token && (
         <div className="flex flex-wrap gap-1 border-t border-slate-100 px-2 py-2 md:hidden dark:border-slate-800">
           <NavLink to="/dashboard" className={navClass}>

@@ -312,9 +312,6 @@ function ResumeUpload() {
             placeholder="Paste the full job posting here (role, requirements, tech stack, responsibilities)…"
             className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
           />
-          {/* <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-            The API field name is <code className="rounded bg-slate-100 px-1 py-0.5 text-slate-800 dark:bg-slate-800 dark:text-slate-200">jobDescription</code> (for Postman: add this key under form-data).
-          </p> */}
         </div>
 
         <div>
@@ -381,10 +378,9 @@ function ResumeUpload() {
         <div className="mt-8 space-y-6">
           {result.analysisSource && result.analysisSource !== "ai" && (
             <div className="rounded-xl border border-amber-300/50 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-100">
-              Basic keyword report — set <code className="rounded bg-amber-100 px-1 dark:bg-amber-900">OPENROUTER_API_KEY</code> on the backend and redeploy for full AI rewrites and section scoring.
+              Basic keyword report — add <code className="rounded bg-amber-100 px-1 dark:bg-amber-900">OPENROUTER_API_KEY</code> (or OpenRouter key as <code className="rounded bg-amber-100 px-1 dark:bg-amber-900">OPENAI_API_KEY</code>) on the backend and restart for full AI analysis.
             </div>
           )}
-          {/* A) HERO SCORE SECTION */}
           <div className="glass rounded-2xl p-6 sm:p-8 dark:bg-[#0F1117]">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex-1">
@@ -423,7 +419,6 @@ function ResumeUpload() {
             </div>
           </div>
 
-          {/* B) SECTION SCORES */}
           {result.sectionScores && (
             <Section title="Section scores" defaultOpen={true}>
               <div className="grid grid-cols-1 gap-4">
@@ -435,7 +430,6 @@ function ResumeUpload() {
             </Section>
           )}
 
-          {/* C) KEYWORD INTELLIGENCE */}
           {(matchedKeywords.length > 0 || missingKeywords.length > 0 || Number.isFinite(result.keywordsTotal)) && (
             <Section title="Keyword intelligence" defaultOpen={true}>
               <div className="flex flex-wrap items-end justify-between gap-3">
@@ -447,7 +441,7 @@ function ResumeUpload() {
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="rounded-xl border border-slate-200 bg-white/60 p-4 dark:border-[#2A2D3E] dark:bg-[#1A1D27]">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    ✅ Matched keywords
+                     Matched keywords
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {matchedKeywords.length ? matchedKeywords.map((k, idx) => <Pill key={`${k}-${idx}`} tone="good">{k}</Pill>) : <span className="text-sm text-slate-600 dark:text-slate-400">—</span>}
@@ -456,7 +450,7 @@ function ResumeUpload() {
 
                 <div className="rounded-xl border border-slate-200 bg-white/60 p-4 dark:border-[#2A2D3E] dark:bg-[#1A1D27]">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    ❌ Missing keywords
+                     Missing keywords
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {missingVisible.length ? missingVisible.map((k, idx) => <Pill key={`${k}-${idx}`} tone="bad">{k}</Pill>) : <span className="text-sm text-slate-600 dark:text-slate-400">—</span>}
@@ -475,7 +469,6 @@ function ResumeUpload() {
             </Section>
           )}
 
-          {/* D) STRENGTHS & SKILLS TO ADD */}
           {(Array.isArray(result.strengthsList) || Array.isArray(result.skillsToAdd)) && (
             <Section title="Strengths & priorities" defaultOpen={true}>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -485,7 +478,7 @@ function ResumeUpload() {
                     {(result.strengthsList || []).length ? (
                       result.strengthsList.map((s, idx) => (
                         <li key={idx} className="flex gap-2">
-                          <span className="text-[#22C55E]">✓</span>
+                          <span className="font-bold text-[#22C55E]">+</span>
                           <span>{s}</span>
                         </li>
                       ))
@@ -509,14 +502,13 @@ function ResumeUpload() {
             </Section>
           )}
 
-          {/* E) FORMATTING ISSUES */}
           {Array.isArray(result.formattingIssues) && result.formattingIssues.length > 0 && (
             <div className="rounded-2xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-6 text-slate-900 dark:text-white">
               <h3 className="text-sm font-semibold">Formatting issues</h3>
               <ul className="mt-3 space-y-2 text-sm text-slate-800 dark:text-slate-200">
                 {result.formattingIssues.map((i, idx) => (
                   <li key={idx} className="flex gap-2">
-                    <span>⚠️</span>
+                    <span className="font-bold text-[#F59E0B]">!</span>
                     <span>{i}</span>
                   </li>
                 ))}
@@ -524,7 +516,6 @@ function ResumeUpload() {
             </div>
           )}
 
-          {/* F) AI RECOMMENDATIONS */}
           <Section title="AI recommendations" defaultOpen={true}>
             {result.summary && (
               <div className="rounded-xl border border-slate-200 bg-white/60 p-4 text-sm text-slate-700 dark:border-[#2A2D3E] dark:bg-[#1A1D27] dark:text-slate-200">
@@ -568,7 +559,6 @@ function ResumeUpload() {
             )}
           </Section>
 
-          {/* G) AI-GENERATED REWRITES */}
           {(result.rewrittenSummary || Array.isArray(result.tailoredBullets)) && (
             <Section title="AI-generated rewrites" defaultOpen={true}>
               {result.rewrittenSummary && (
