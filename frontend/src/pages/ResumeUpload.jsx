@@ -379,6 +379,11 @@ function ResumeUpload() {
 
       {result && !loading && (
         <div className="mt-8 space-y-6">
+          {result.analysisSource && result.analysisSource !== "ai" && (
+            <div className="rounded-xl border border-amber-300/50 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-100">
+              Basic keyword report — set <code className="rounded bg-amber-100 px-1 dark:bg-amber-900">OPENROUTER_API_KEY</code> on the backend and redeploy for full AI rewrites and section scoring.
+            </div>
+          )}
           {/* A) HERO SCORE SECTION */}
           <div className="glass rounded-2xl p-6 sm:p-8 dark:bg-[#0F1117]">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
