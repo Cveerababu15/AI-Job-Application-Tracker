@@ -1,3 +1,4 @@
+import {lazy,Suspense} from "react"
 import { Routes, Route } from "react-router-dom";
 import MainLayout from "./layouts/MainLayout.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
@@ -5,14 +6,26 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Home from "./pages/Home.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
-import Jobs from "./pages/Jobs.jsx";
-import AddJob from "./pages/AddJob.jsx";
-import ResumeUpload from "./pages/ResumeUpload.jsx";
+
+const Dashboard=lazy(()=>import("./pages/Dashboard.jsx"));
+const Jobs=lazy(()=>import("./pages/Jobs.jsx"));
+const AddJob =lazy(()=> import( "./pages/AddJob.jsx"));
+const ResumeUpload = lazy(()=> import("./pages/ResumeUpload.jsx"));
+
+function PageLoader(){
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center">
+      <div className="h-10 w-10 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent">
+
+      </div>
+    </div>
+  )
+}
 
 function App() {
   return (
     <MainLayout>
+      <Suspense fallback={<PageLoader/>}>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
@@ -50,6 +63,7 @@ function App() {
           }
         />
       </Routes>
+      </Suspense>
     </MainLayout>
   );
 }
